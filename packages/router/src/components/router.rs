@@ -21,7 +21,7 @@ pub struct RouterProps<'a> {
     /// This lets you easily implement redirects
     ///
     #[props(default)]
-    pub onchange: EventHandler<'a, Rc<RouterService>>,
+    pub onchange: EventHandler<'a, RouterService>,
 }
 
 /// A component that conditionally renders children based on the current location of the app.

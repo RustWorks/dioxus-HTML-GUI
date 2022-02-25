@@ -14,9 +14,12 @@ fn main() {
 static APP: Component = |cx| {
     cx.render(rsx! {
         Router {
-            onchange: move |route| log::info!("route changed to {}", route),
+            onchange: move |router: RouterService| {
+                let loc = router.current_location();
+                log::info!("route changed to {}", loc);
+            },
             Route { to: "/", Home {} }
-            Route { to: "blog"
+            Route { to: "blog",
                 Route { to: "/", BlogList {} }
                 Route { to: ":id", BlogPost {} }
             }

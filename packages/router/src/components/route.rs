@@ -41,7 +41,7 @@ pub fn Route<'a>(cx: Scope<'a, RouteProps<'a>>) -> Element {
     cx.use_hook(|_| {
         // create a bigger, better, longer route if one above us exists
         let total_route = match cx.consume_context::<RouteContext>() {
-            Some(ctx) => ctx.total_route.to_string(),
+            Some(ctx) => ctx.total_route,
             None => cx.props.to.to_string(),
         };
 
@@ -53,7 +53,7 @@ pub fn Route<'a>(cx: Scope<'a, RouteProps<'a>>) -> Element {
 
         // submit our rout
         router_root.register_total_route(
-            route_context.total_route.clone(),
+            route_context.total_route,
             cx.scope_id(),
             cx.props.fallback,
         );

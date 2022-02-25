@@ -6,6 +6,7 @@ use std::{
     cell::{Cell, Ref, RefCell},
     collections::{HashMap, HashSet},
     rc::Rc,
+    sync::Arc,
 };
 
 /// An abstraction over the platform's history API.
@@ -35,10 +36,26 @@ use std::{
 /// - On the web, this is a [`BrowserHistory`](https://docs.rs/gloo/0.3.0/gloo/history/struct.BrowserHistory.html).
 /// - On desktop, mobile, and SSR, this is just a Vec of Strings. Currently on
 ///   desktop, there is no way to tap into forward/back for the app unless explicitly set.
-pub struct RouterService {
-    pub(crate) regen_route: Rc<dyn Fn(ScopeId)>,
+#[derive(Clone)]
+pub struct RouterService(Arc<RouterCore>);
 
-    pub(crate) pending_events: Rc<RefCell<Vec<RouteEvent>>>,
+impl std::ops::Deref for RouterService {
+    type Target = RouterCore;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+pub struct RouterCore {
+    pub regen_route: Rc<dyn Fn(ScopeId)>,
+
+    pub stack: RefCell<Vec<RawRouteData>>,
+
+    // We re-compute the current route every time it changes.
+    pub computed: Cell<Arc<ComputedRouteData>>,
+
+    pub pending_events: Rc<RefCell<Vec<RouteEvent>>>,
 
     slots: Rc<RefCell<Vec<(ScopeId, String)>>>,
 
@@ -49,6 +66,19 @@ pub struct RouterService {
     cur_path_params: Rc<RefCell<HashMap<String, String>>>,
 
     history: Box<dyn RouterProvider>,
+}
+
+pub struct RawRouteData {
+    pub path: String,
+    pub params: String,
+    pub hash: String,
+    pub state: Option<Box<dyn Any + Send + Sync>>,
+}
+
+pub struct ComputedRouteData {
+    pub path: Vec<String>,
+    pub params: HashMap<String, String>,
+    pub hash: String,
 }
 
 pub(crate) enum RouteEvent {
@@ -108,7 +138,7 @@ impl RouterService {
 
         let mut history = Box::new(hash::create_router());
 
-        Self {
+        RouterService(Arc::new(RouterCore {
             root_found,
             history,
             regen_route,
@@ -116,7 +146,7 @@ impl RouterService {
             pending_events,
             onchange_listeners,
             cur_path_params: Rc::new(RefCell::new(HashMap::new())),
-        }
+        }))
     }
 
     /// Push a new route to the history.

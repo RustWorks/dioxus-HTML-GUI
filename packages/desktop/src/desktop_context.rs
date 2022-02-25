@@ -112,7 +112,7 @@ impl DesktopContext {
 
 /// use this function can get the `DesktopContext` context.
 pub fn use_window(cx: &ScopeState) -> &Rc<DesktopContext> {
-    cx.use_hook(|_| cx.consume_context::<DesktopContext>())
+    cx.use_hook(|_| cx.consume_context::<Rc<DesktopContext>>())
         .as_ref()
         .unwrap()
 }

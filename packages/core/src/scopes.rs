@@ -466,7 +466,7 @@ pub struct ScopeState {
     pub(crate) hook_idx: Cell<usize>,
 
     // shared state -> todo: move this out of scopestate
-    pub(crate) shared_contexts: RefCell<HashMap<TypeId, Rc<dyn Any>>>,
+    pub(crate) shared_contexts: RefCell<HashMap<TypeId, Box<dyn Any>>>,
     pub(crate) tasks: Rc<TaskQueue>,
 }
 
@@ -648,11 +648,10 @@ impl ScopeState {
     ///     rsx!(cx, div { "hello {state.0}" })
     /// }
     /// ```
-    pub fn provide_context<T: 'static>(&self, value: T) -> Rc<T> {
-        let value = Rc::new(value);
+    pub fn provide_context<T: 'static + Clone>(&self, value: T) -> T {
         self.shared_contexts
             .borrow_mut()
-            .insert(TypeId::of::<T>(), value.clone())
+            .insert(TypeId::of::<T>(), Box::new(value.clone()))
             .map(|f| f.downcast::<T>().ok())
             .flatten();
         value
@@ -676,14 +675,12 @@ impl ScopeState {
     ///     rsx!(cx, div { "hello {state.0}" })
     /// }
     /// ```
-    pub fn provide_root_context<T: 'static>(&self, value: T) -> Rc<T> {
-        let value = Rc::new(value);
-
+    pub fn provide_root_context<T: 'static + Clone>(&self, value: T) -> T {
         // if we *are* the root component, then we can just provide the context directly
         if self.scope_id() == ScopeId(0) {
             self.shared_contexts
                 .borrow_mut()
-                .insert(TypeId::of::<T>(), value.clone())
+                .insert(TypeId::of::<T>(), Box::new(value.clone()))
                 .map(|f| f.downcast::<T>().ok())
                 .flatten();
             return value;
@@ -698,7 +695,7 @@ impl ScopeState {
                 let exists = parent
                     .shared_contexts
                     .borrow_mut()
-                    .insert(TypeId::of::<T>(), value.clone());
+                    .insert(TypeId::of::<T>(), Box::new(value.clone()));
 
                 if exists.is_some() {
                     log::warn!("Context already provided to parent scope - replacing it");
@@ -713,9 +710,9 @@ impl ScopeState {
     }
 
     /// Try to retrieve a SharedState with type T from the any parent Scope.
-    pub fn consume_context<T: 'static>(&self) -> Option<Rc<T>> {
+    pub fn consume_context<T: 'static + Clone>(&self) -> Option<T> {
         if let Some(shared) = self.shared_contexts.borrow().get(&TypeId::of::<T>()) {
-            Some(shared.clone().downcast::<T>().unwrap())
+            Some((*shared.downcast_ref::<T>().unwrap()).clone())
         } else {
             let mut search_parent = self.parent_scope;
 
@@ -723,7 +720,7 @@ impl ScopeState {
                 // safety: all parent pointers are valid thanks to the bump arena
                 let parent = unsafe { &*parent_ptr };
                 if let Some(shared) = parent.shared_contexts.borrow().get(&TypeId::of::<T>()) {
-                    return Some(shared.clone().downcast::<T>().unwrap());
+                    return Some(shared.downcast_ref::<T>().unwrap().clone());
                 }
                 search_parent = parent.parent_scope;
             }
