@@ -94,7 +94,11 @@ impl RouterService {
     /// of the router itself.
     ///
     /// In most cases, `root_scope` should be `ScopeId(0)`.
-    pub fn new(regen_route: Rc<dyn Fn(ScopeId)>, root_scope: ScopeId) -> Self {
+    pub fn new(regen_route: Arc<dyn Fn(ScopeId)>, root_scope: ScopeId) -> Self {
+        let history = BrowserHistory::default();
+        let location = history.location();
+        let path = location.path();
+
         let onchange_listeners = Rc::new(RefCell::new(HashSet::new()));
         let slots: Rc<RefCell<Vec<(ScopeId, String)>>> = Default::default();
         let pending_events: Rc<RefCell<Vec<RouteEvent>>> = Default::default();
